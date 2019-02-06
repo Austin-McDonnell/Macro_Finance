@@ -5,6 +5,7 @@ library(lubridate)
 library(plotly)
 library(ts)
 library(shiny)
+library(PerformanceAnalytics)
 setwd("C:\\Users\\austi\\Documents\\Github_Repos\\Macro_Finance\\Assignment-1\\Data")
 
 crsp = read.csv('crsp_monthly.csv')
@@ -23,77 +24,44 @@ tbillq$date = ymd(tbillq$date)
 
 tbilla$year = year(tbilla$date)
 tbillq$quarter = as.Date(as.yearqtr(tbillq$date))
-#################################
-
-
-
-crsp['div'] = crsp$vwretd - crsp$vwretx# Generate Dividend returns
-
-filter(crsp, div < 0)# Check to see if Div returns are all positive
-
-#plot_ly(crsp, x = ~date, y = ~div, type = "scatter", mode = 'lines')#plot initial dividends
 
 crsp$quarter = as.Date(as.yearqtr(crsp$date))
-
 crsp$year = year(crsp$date)
+#################################
 
-timePeriod = function(data, period){
-  
-  if(period == 'Annually'){
-    return(
-      data %>%
-        group_by(year) %>%
-        summarise(vwretx = sum(vwretx), vwretd = sum(vwretd), div = sum(div))
-    )
-  }
-  
-  if(period == 'Quarterly'){
-    return(
-      data %>%
-        group_by(quarter) %>%
-        summarise(vwretx = sum(vwretx), vwretd = sum(vwretd), div = sum(div))
-    )
-  }
-  
-  else{
-    return(data)
-  }
-  
-}
+# Generate Dividend returns
+crsp['div'] = crsp$vwretd - crsp$vwretx
 
-generate_plot = function(data, time){
-  lineChart = plotly(data, x = ~time, y = ~div, type = 'scatter', mode = 'lines')
-  
-  
-}
+# Check to see if Div returns are all positive
+filter(crsp, div < 0)
 
+# Plot initial monthly dividends
+#plot_ly(crsp, x = ~date, y = ~div, type = "scatter", mode = 'lines')
 
+# Generate quarterly geometric cumulative sum
 crspq = crsp %>%
-  group_by(quarterYear) %>%
-  summarise(vwretx = sum(vwretx), vwretd = sum(vwretd), div = sum(div))
-
+  group_by(quarter) %>%
+  summarise(vwretx = Return.cumulative(vwretx, geometric = TRUE),
+            vwretd = Return.cumulative(vwretd, geometric = TRUE),
+            div = Return.cumulative(div, geometric = TRUE))
+# Generate yearlt geometric cumulative sums
 crspa = crsp %>%
-  group_by(yearly) %>%
-  summarise(vwretx = sum(vwretx), vwretd = sum(vwretd), div = sum(div))
+  group_by(year) %>%
+  summarise(vwretx = Return.cumulative(vwretx, geometric = TRUE),
+            vwretd = Return.cumulative(vwretd, geometric = TRUE),
+            div = Return.cumulative(div, geometric = TRUE))
 
-colnames(crspq)[1] <- "date"
-colnames(crspa)[1] <- "date"
+# Join matching data based on the quarter and year dates
+tbillq = left_join(tbillq, crspq, by = 'quarter')
+tbilla = left_join(tbilla, crspa, by = 'year')
 
-#plot_ly(crspq, x = ~quarterYear, y = ~div, type = "scatter", mode = 'lines')
+# Calculate the excess dividend inclusive index return 
+tbillq$excessRetd = tbillq$vwretd - tbillq$t90ret
+tbilla$excessRetd = tbilla$vwretd - tbilla$b1ret
 
-
+# Plot the dividend returns quarterly and yearly
+#plot_ly(crspq, x = ~quarter, y = ~div, type = "scatter", mode = 'lines')
 #plot_ly(crspa, x = ~yearly, y = ~div, type = "scatter", mode = 'lines')
 
-ui <- pageWithSidebar(
-  
-  # App title ----
-  headerPanel("Macro Finance Dividend Analysis"),
-  
-  # Sidebar panel for inputs ----
-  sidebarPanel(),
-  
-  # Main panel for displaying outputs ----
-  mainPanel()
-)
 
 
