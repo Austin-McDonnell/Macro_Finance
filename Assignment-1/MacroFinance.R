@@ -4,6 +4,7 @@ library(zoo)
 library(lubridate)
 library(plotly)
 library(ts)
+library(shiny)
 setwd("C:\\Users\\austi\\Documents\\Github_Repos\\Macro_Finance\\Assignment-1\\Data")
 
 crsp = read.csv('crsp_monthly.csv')
@@ -27,7 +28,7 @@ crsp['div'] = crsp$vwretd - crsp$vwretx# Generate Dividend returns
 
 filter(crsp, div < 0)# Check to see if Div returns are all positive
 
-plot_ly(crsp, x = ~date, y = ~div, type = "scatter", mode = 'lines')#plot initial dividends
+#plot_ly(crsp, x = ~date, y = ~div, type = "scatter", mode = 'lines')#plot initial dividends
 
 crsp$quarterYear <- as.Date(as.yearqtr(crsp$date))
 
@@ -35,15 +36,30 @@ crsp$yearly = year(crsp$date)
 
 crspq = crsp %>%
   group_by(quarterYear) %>%
-  summarise(ret = sum(vwretx), retd = sum(vwretd), div = sum(div))
+  summarise(vwretx = sum(vwretx), vwretd = sum(vwretd), div = sum(div))
 
 crspa = crsp %>%
   group_by(yearly) %>%
-  summarise(ret = sum(vwretx), retd = sum(vwretd), div = sum(div))
+  summarise(vwretx = sum(vwretx), vwretd = sum(vwretd), div = sum(div))
 
-plot_ly(crspq, x = ~quarterYear, y = ~div, type = "scatter", mode = 'lines')
+colnames(crspq)[1] <- "date"
+colnames(crspa)[1] <- "date"
+
+#plot_ly(crspq, x = ~quarterYear, y = ~div, type = "scatter", mode = 'lines')
 
 
-plot_ly(crspa, x = ~yearly, y = ~div, type = "scatter", mode = 'lines')
+#plot_ly(crspa, x = ~yearly, y = ~div, type = "scatter", mode = 'lines')
+
+ui <- pageWithSidebar(
+  
+  # App title ----
+  headerPanel("Macro Finance Dividend Analysis"),
+  
+  # Sidebar panel for inputs ----
+  sidebarPanel(),
+  
+  # Main panel for displaying outputs ----
+  mainPanel()
+)
 
 
