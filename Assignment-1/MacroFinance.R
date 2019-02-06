@@ -20,6 +20,9 @@ colnames(tbillq)[1] <- "date"
 crsp$date = ymd(crsp$date)
 tbilla$date = ymd(tbilla$date)
 tbillq$date = ymd(tbillq$date)
+
+tbilla$year = year(tbilla$date)
+tbillq$quarter = as.Date(as.yearqtr(tbillq$date))
 #################################
 
 
@@ -30,9 +33,40 @@ filter(crsp, div < 0)# Check to see if Div returns are all positive
 
 #plot_ly(crsp, x = ~date, y = ~div, type = "scatter", mode = 'lines')#plot initial dividends
 
-crsp$quarterYear <- as.Date(as.yearqtr(crsp$date))
+crsp$quarter = as.Date(as.yearqtr(crsp$date))
 
-crsp$yearly = year(crsp$date)
+crsp$year = year(crsp$date)
+
+timePeriod = function(data, period){
+  
+  if(period == 'Annually'){
+    return(
+      data %>%
+        group_by(year) %>%
+        summarise(vwretx = sum(vwretx), vwretd = sum(vwretd), div = sum(div))
+    )
+  }
+  
+  if(period == 'Quarterly'){
+    return(
+      data %>%
+        group_by(quarter) %>%
+        summarise(vwretx = sum(vwretx), vwretd = sum(vwretd), div = sum(div))
+    )
+  }
+  
+  else{
+    return(data)
+  }
+  
+}
+
+generate_plot = function(data, time){
+  lineChart = plotly(data, x = ~time, y = ~div, type = 'scatter', mode = 'lines')
+  
+  
+}
+
 
 crspq = crsp %>%
   group_by(quarterYear) %>%
