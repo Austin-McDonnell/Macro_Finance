@@ -6,16 +6,53 @@ library(plotly)
 library(ts)
 library(shiny)
 library(PerformanceAnalytics)
-library(aTSA)
+#library(aTSA)
+library(tseries)
 setwd("C:\\Users\\austi\\Documents\\Github_Repos\\Macro_Finance\\Assignment-1\\Data")
 
 # Helper Functions
 ############################################################
 # Shortcut for making line charts
-linePlot = function(x, y){
+linePlot = function(x, y, xlabel, ylabel, title){
   return(
-    plot_ly(x = x, y = y, type = "scatter", mode = 'lines')
+    plot_ly(x = x, y = y, type = "scatter", mode = 'lines') %>%
+      layout(
+        title = toString(title),
+        xaxis = list(title = toString(xlabel)),
+        yaxis = list(title = toString(ylabel))
+      )
   )
+}
+
+# Saves all of the plots names with 'plot(number)' to the WD 
+saveAllPlots = function(numPlots){
+  for(i in seq.int(numPlots)){
+    htmlwidgets::saveWidget(eval(parse(paste('plot', i, sep =''))),
+                            paste('plot', i, '.html', sep = ''))
+  }
+}
+
+# Returns the results from variously lagged linear regressions
+regLaggedDiv = function(maxLag, dependent, independent){
+  coeffMatrix = list()
+  rSquared = list()
+  adjRsquared = list()
+  
+  for(i in seq.int(maxLag)){
+    independent = lag(independent, k=i)
+    if(i == 1){
+      independent = independent[-i]
+      dependent = dependent[-i]
+    }
+    else{
+      independent = independent[-(1:i)]
+      dependent = dependent[-(1:i)]
+    }
+    coeffMatrix[[i]] = summary(lm(dependent ~ independent))$coefficients
+    rSquared[[i]] = summary(lm(dependent ~ independent))$r.squared
+    adjRsquared[[i]] = summary(lm(dependent ~ independent))$adj.r.squared
+  }
+  return(list(coeffMatrix, rSquared, adjRsquared))
 }
 ###########################################################
 
@@ -82,42 +119,65 @@ tbilla$logDiv = log(tbilla$div + 1)
 # INITIAL PLOTTING
 ############################################################
 # PLotting Q & Y Log Div: Does not look stationary
-linePlot(tbillq$quarter, tbillq$logDiv)
-linePlot(tbilla$year, tbilla$logDiv)
+plot1 = linePlot(tbillq$quarter, tbillq$logDiv,
+                 'Date', 'Log Dividend Return', 'Quarterly Dividend Log Returns')
+plot2 = linePlot(tbilla$year, tbilla$logDiv,
+                 'Date', 'Log Dividend Return', 'Annual Dividend Log Returns')
+
+densityq = density(tbillq$logDiv)
+plot3 = plot_ly(x = ~densityq$x, y = ~densityq$y,type = 'scatter', mode = 'lines', fill = 'tozeroy') %>%
+  layout(
+    title = 'Quarterly Dividend Log Return Denisty',
+    xaxis = list(title = 'Log Dividend Returns: Quarterly'),
+    yaxis = list(title = 'Density')
+  )
+
+
+
 
 # Plotting Log Excess Return, Div Inclusive, Q & Y: Both look more stationary
-linePlot(tbillq$quarter, tbillq$logExcessRetd)
-linePlot(tbilla$year, tbilla$logExcessRetd)
+plot4 = linePlot(tbillq$quarter, tbillq$logExcessRetd)
+plot5 = linePlot(tbilla$year, tbilla$logExcessRetd)
 
 # Plotting Log Excess Return, Div Exclusive, Q & Y: Both look more stationary
-linePlot(tbillq$quarter, tbillq$logExcessRet)
-linePlot(tbilla$year, tbilla$logExcessRet)
+plot6 = linePlot(tbillq$quarter, tbillq$logExcessRet)
+plot7 = linePlot(tbilla$year, tbilla$logExcessRet)
 #############################################################
+
+# Remove any NaN's
+tbillq = na.omit(tbillq)
+tbilla = na.omit(tbilla)
 
 
 # Runs ADF Tests for stationarity on each variable
 vars = list(tbillq$logDiv, tbillq$logExcessRetd, tbillq$logExcessRet,
             tbilla$logDiv, tbilla$logExcessRetd, tbilla$logExcessRet)
-ans = 0
+# ADF Tests show that Log Div both Q & Y are not stationary
+ans = 1
 for(i in vars){
-  print(adf.test(i))
-  print("Enter 1 to continue or 0 to exit")
-  ans = readline(prompt="Answer: ")
-  
   if(ans == 1){
+    print(adf.test(i))
+    print("Enter 1 to continue or 0 to exit")
+    ans = readline(prompt="Answer: ")
     next
   }
   else(break)
 }
 
 
-# TODO: Build VARS Model Selection for the appropriate regression
+plot8 = plot_ly(y = diff(tbillq$logDiv, differences = 1, lag = 1), type = "scatter", mode = 'lines')
+plot9 = plot_ly(y = diff(tbilla$logDiv, differences = 1, lag = 1), type = "scatter", mode = 'lines')
+
+# Shows that the differencing of the log return dividends are stationary
+adf.test(diff(tbillq$logDiv, differences = 1, lag = 1))
+adf.test(diff(tbilla$logDiv, differences = 1, lag = 1))
 
 
 
+# Build the LM for across the whole period for each Q & Y across multiple lags for Divs
 
-
-
+fullPeriodRegq = regLaggedDiv(6, tbillq$logExcessRetd, tbillq$logDiv)
+fullPeriodRega = regLaggedDiv(6, tbilla$logExcessRetd, tbilla$logDiv)
 
 
 
