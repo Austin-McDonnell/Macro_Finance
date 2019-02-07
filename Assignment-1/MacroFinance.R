@@ -6,7 +6,18 @@ library(plotly)
 library(ts)
 library(shiny)
 library(PerformanceAnalytics)
+library(aTSA)
 setwd("C:\\Users\\austi\\Documents\\Github_Repos\\Macro_Finance\\Assignment-1\\Data")
+
+# Helper Functions
+############################################################
+# Shortcut for making line charts
+linePlot = function(x, y){
+  return(
+    plot_ly(x = x, y = y, type = "scatter", mode = 'lines')
+  )
+}
+###########################################################
 
 crsp = read.csv('crsp_monthly.csv')
 tbilla = read.csv('TBill_Annual.csv')
@@ -55,13 +66,58 @@ crspa = crsp %>%
 tbillq = left_join(tbillq, crspq, by = 'quarter')
 tbilla = left_join(tbilla, crspa, by = 'year')
 
-# Calculate the excess dividend inclusive index return 
-tbillq$excessRetd = tbillq$vwretd - tbillq$t90ret
-tbilla$excessRetd = tbilla$vwretd - tbilla$b1ret
+# Convert Simple returns (calculated by CRSP) to Log Returns: r = log(R + 1)
+# Calculate the excess dividend inclusive index log return 
+tbillq$logExcessRetd = log(tbillq$vwretd + 1) - log(tbillq$t90ret + 1)
+tbilla$logExcessRetd = log(tbilla$vwretd + 1) - log(tbilla$b1ret + 1)
 
-# Plot the dividend returns quarterly and yearly
-#plot_ly(crspq, x = ~quarter, y = ~div, type = "scatter", mode = 'lines')
-#plot_ly(crspa, x = ~yearly, y = ~div, type = "scatter", mode = 'lines')
+# Calculate the excess dividend exclusive index log return
+tbillq$logExcessRet = log(tbillq$vwretx + 1) - log(tbillq$t90ret + 1)
+tbilla$logExcessRet = log(tbilla$vwretx + 1) - log(tbilla$b1ret + 1)
+
+#Calculate the log of each dividend return
+tbillq$logDiv = log(tbillq$div + 1)
+tbilla$logDiv = log(tbilla$div + 1)
+
+# INITIAL PLOTTING
+############################################################
+# PLotting Q & Y Log Div: Does not look stationary
+linePlot(tbillq$quarter, tbillq$logDiv)
+linePlot(tbilla$year, tbilla$logDiv)
+
+# Plotting Log Excess Return, Div Inclusive, Q & Y: Both look more stationary
+linePlot(tbillq$quarter, tbillq$logExcessRetd)
+linePlot(tbilla$year, tbilla$logExcessRetd)
+
+# Plotting Log Excess Return, Div Exclusive, Q & Y: Both look more stationary
+linePlot(tbillq$quarter, tbillq$logExcessRet)
+linePlot(tbilla$year, tbilla$logExcessRet)
+#############################################################
+
+
+# Runs ADF Tests for stationarity on each variable
+vars = list(tbillq$logDiv, tbillq$logExcessRetd, tbillq$logExcessRet,
+            tbilla$logDiv, tbilla$logExcessRetd, tbilla$logExcessRet)
+ans = 0
+for(i in vars){
+  print(adf.test(i))
+  print("Enter 1 to continue or 0 to exit")
+  ans = readline(prompt="Answer: ")
+  
+  if(ans == 1){
+    next
+  }
+  else(break)
+}
+
+
+# TODO: Build VARS Model Selection for the appropriate regression
+
+
+
+
+
+
 
 
 
