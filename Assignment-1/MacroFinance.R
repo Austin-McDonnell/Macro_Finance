@@ -203,12 +203,40 @@ plot_ly(y = rollingRsquaredd$adjRsquared, y = row(rollingRsquaredd), type = "sca
     title = 'Adjusted R Squares: No Lagged Independent Variables'
   )
 
-rollingRsquaredx = rollingWindow(tbilla$logExcessRet, tbilla$logDiv, window = 15)
+rollingRsquaredx = rollingWindow(tbilla$logExcessRetx, tbilla$logDiv, window = 15)
 
-plot_ly(y = rollingRsquaredx$adjRsquared, y = row(rollingRsquaredx), type = "scatter", mode = 'lines') %>%
+plot_ly(y = rollingRsquaredx$adjRsquared, x = row(rollingRsquaredx), type = "scatter", mode = 'lines') %>%
   layout(
     title = 'Adjusted R Squares: No Lagged Independent Variables'
   )
+
+
+rollingRsquareddL1 = rollingWindow(tbilla$logExcessRetd[-1], lag(tbilla$logDiv)[-1], window = 15)
+
+rollingRsquaredxL1 = rollingWindow(tbilla$logExcessRetx[-1], lag(tbilla$logDiv)[-1], window = 15)
+
+dataL = data.frame(rollingRsquareddL1, rollingRsquaredxL1)
+
+plot10 = plot_ly(y = data$adjRsquared, name = 'Dividends Inclusive: Lag 1',
+        type = 'scatter', mode = 'lines') %>%
+  add_trace(y = data$adjRsquared.1, name = 'Dividends Exclusive: Lag 1',
+            type = 'scatter', mode = 'lines') %>%
+  layout(
+    title = 'Rolling Window Regression Adjusted R Squared'
+  )
+
+
+data = data.frame(rollingRsquaredd, rollingRsquaredx)
+
+plot11 = plot_ly(y = data$adjRsquared, name = 'Dividends Inclusive',
+        type = 'scatter', mode = 'lines') %>%
+  add_trace(y = data$adjRsquared.1, name = 'Dividends Exclusive',
+            type = 'scatter', mode = 'lines') %>%
+  layout(
+    title = 'Rolling Window Regression Adjusted R Squared'
+  )
+
+
 
 
 rollingLag = function(maxLag, dependent, independent){
