@@ -1,0 +1,55 @@
+FUll PERIOD DIFFERENCING REGRESSION RESULTS
+
+ANNUAL SERIES - DIV INCLUSIVE
+
+Coefficients:
+                                               Estimate Std. Error t value Pr(>|t|)    
+(Intercept)                                     0.05462    0.01773   3.081  0.00292 ** 
+diff(tbilla$logDiv, differences = 1, lag = 1) -13.12469    3.18421  -4.122 9.93e-05 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 0.1513 on 72 degrees of freedom
+Multiple R-squared:  0.1909,	Adjusted R-squared:  0.1797 
+F-statistic: 16.99 on 1 and 72 DF,  p-value: 9.932e-05
+
+ANNUAL SERIES - DIV EXCLUSIVE
+
+Coefficients:
+                                               Estimate Std. Error t value Pr(>|t|)    
+(Intercept)                                     0.01818    0.01745   1.042    0.301    
+diff(tbilla$logDiv, differences = 1, lag = 1) -13.43727    3.13343  -4.288  5.5e-05 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 0.1489 on 72 degrees of freedom
+Multiple R-squared:  0.2035,	Adjusted R-squared:  0.1924 
+F-statistic: 18.39 on 1 and 72 DF,  p-value: 5.503e-05
+
+QUARTERLY - DIV INCLUSIVE
+
+Coefficients:
+                                              Estimate Std. Error t value Pr(>|t|)   
+(Intercept)                                    0.01450    0.00552   2.627  0.00898 **
+diff(tbillq$logDiv, differences = 1, lag = 1) -5.21074    1.89228  -2.754  0.00619 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 0.1046 on 357 degrees of freedom
+Multiple R-squared:  0.0208,	Adjusted R-squared:  0.01806 
+F-statistic: 7.583 on 1 and 357 DF,  p-value: 0.006194
+
+QUARTERLY - DIV EXCLUSIVE
+
+Coefficients:
+                                               Estimate Std. Error t value Pr(>|t|)   
+(Intercept)                                    0.004853   0.005539   0.876  0.38157   
+diff(tbillq$logDiv, differences = 1, lag = 1) -5.740506   1.898918  -3.023  0.00268 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 0.1049 on 357 degrees of freedom
+Multiple R-squared:  0.02496,	Adjusted R-squared:  0.02223 
+F-statistic: 9.139 on 1 and 357 DF,  p-value: 0.002683
+
+
