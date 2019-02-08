@@ -1,3 +1,5 @@
 *.csv
 *\.ipynb_checkpoints
-*.Rhistory
+*\.Rhistory
+Assignment-1/Data/.Rhistory
+Assignment-1/Data/.Rhistory
