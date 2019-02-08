@@ -18,8 +18,8 @@ linePlot = function(x, y, xlabel, ylabel, title){
     plot_ly(x = x, y = y, type = "scatter", mode = 'lines') %>%
       layout(
         title = toString(title),
-        xaxis = list(title = toString(xlabel)),
-        yaxis = list(title = toString(ylabel))
+        xaxis = list(toString(xlabel)),
+        yaxis = list(toString(ylabel))
       )
   )
 }
@@ -83,9 +83,6 @@ crsp['div'] = crsp$vwretd - crsp$vwretx
 # Check to see if Div returns are all positive
 filter(crsp, div < 0)
 
-# Plot initial monthly dividends
-#plot_ly(crsp, x = ~date, y = ~div, type = "scatter", mode = 'lines')
-
 # Generate quarterly geometric cumulative sum
 crspq = crsp %>%
   group_by(quarter) %>%
@@ -109,8 +106,8 @@ tbillq$logExcessRetd = log(tbillq$vwretd + 1) - log(tbillq$t90ret + 1)
 tbilla$logExcessRetd = log(tbilla$vwretd + 1) - log(tbilla$b1ret + 1)
 
 # Calculate the excess dividend exclusive index log return
-tbillq$logExcessRet = log(tbillq$vwretx + 1) - log(tbillq$t90ret + 1)
-tbilla$logExcessRet = log(tbilla$vwretx + 1) - log(tbilla$b1ret + 1)
+tbillq$logExcessRetx = log(tbillq$vwretx + 1) - log(tbillq$t90ret + 1)
+tbilla$logExcessRetx = log(tbilla$vwretx + 1) - log(tbilla$b1ret + 1)
 
 #Calculate the log of each dividend return
 tbillq$logDiv = log(tbillq$div + 1)
@@ -136,12 +133,16 @@ plot3 = plot_ly(x = ~densityq$x, y = ~densityq$y,type = 'scatter', mode = 'lines
 
 
 # Plotting Log Excess Return, Div Inclusive, Q & Y: Both look more stationary
-plot4 = linePlot(tbillq$quarter, tbillq$logExcessRetd)
-plot5 = linePlot(tbilla$year, tbilla$logExcessRetd)
+plot4 = linePlot(tbillq$quarter, tbillq$logExcessRetd,
+                 'Date', 'Log Excess Return', 'Quarterly Log Excess Returns: Dividend Inclusive')
+plot5 = linePlot(tbilla$year, tbilla$logExcessRetd,
+                 'Date', 'Log Excess Return', 'Yearly Log Excess Returns: Dividend Inclusive')
 
 # Plotting Log Excess Return, Div Exclusive, Q & Y: Both look more stationary
-plot6 = linePlot(tbillq$quarter, tbillq$logExcessRet)
-plot7 = linePlot(tbilla$year, tbilla$logExcessRet)
+plot6 = linePlot(tbillq$quarter, tbillq$logExcessRetx,
+                 'Date', 'Log Excess Return', 'Quarterly Log Excess Returns: Dividend Exclusive')
+plot7 = linePlot(tbilla$year, tbilla$logExcessRetx,
+                 'Date', 'Log Excess Return', 'Yearly Log Excess Returns: Dividend Exclusive')
 #############################################################
 
 # Remove any NaN's
@@ -150,8 +151,8 @@ tbilla = na.omit(tbilla)
 
 
 # Runs ADF Tests for stationarity on each variable
-vars = list(tbillq$logDiv, tbillq$logExcessRetd, tbillq$logExcessRet,
-            tbilla$logDiv, tbilla$logExcessRetd, tbilla$logExcessRet)
+vars = list(tbillq$logDiv, tbillq$logExcessRetd, tbillq$logExcessRetx,
+            tbilla$logDiv, tbilla$logExcessRetd, tbilla$logExcessRetx)
 # ADF Tests show that Log Div both Q & Y are not stationary
 ans = 1
 for(i in vars){
@@ -179,5 +180,48 @@ adf.test(diff(tbilla$logDiv, differences = 1, lag = 1))
 fullPeriodRegq = regLaggedDiv(6, tbillq$logExcessRetd, tbillq$logDiv)
 fullPeriodRega = regLaggedDiv(6, tbilla$logExcessRetd, tbilla$logDiv)
 
+rollingWindow = function(dependent, independent, window){
+  adjRsquared = c()
+  periodLength = length(dependent)
+  
+  for(j in seq.int((periodLength - window))){
+    
+    y = dependent[j:(j + window -1)]
+    x = independent[j:(j + window -1)]
+    
+    adjRsquared[j] = summary(lm(y ~ x))$adj.r.squared
+    
+  }
+  return(as.data.frame(adjRsquared))
+}
 
 
+rollingRsquaredd = rollingWindow(tbilla$logExcessRetd, tbilla$logDiv, window = 15)
+
+plot_ly(y = rollingRsquaredd$adjRsquared, y = row(rollingRsquaredd), type = "scatter", mode = 'lines') %>%
+  layout(
+    title = 'Adjusted R Squares: No Lagged Independent Variables'
+  )
+
+rollingRsquaredx = rollingWindow(tbilla$logExcessRet, tbilla$logDiv, window = 15)
+
+plot_ly(y = rollingRsquaredx$adjRsquared, y = row(rollingRsquaredx), type = "scatter", mode = 'lines') %>%
+  layout(
+    title = 'Adjusted R Squares: No Lagged Independent Variables'
+  )
+
+
+rollingLag = function(maxLag, dependent, independent){
+  
+  for(i in seq.int(maxLag)){
+    independent = lag(independent, k=i)
+    if(i == 1){
+      independent = independent[-i]
+      dependent = dependent[-i]
+    }
+    else{
+      independent = independent[-(1:i)]
+      dependent = dependent[-(1:i)]
+    }
+  }
+}
