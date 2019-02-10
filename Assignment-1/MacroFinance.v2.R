@@ -26,17 +26,24 @@ linePlot = function(x, y, xlabel, ylabel, title){
 
 # Saves all of the plots names with 'plot(number)' to the WD 
 saveAllPlotsHtml = function(numPlots){
-  for(i in seq.int(numPlots)){
+  setwd("C:\\Users\\austi\\Documents\\Github_Repos\\Macro_Finance\\Assignment-1\\Data")
+  for(i in 1:numPlots){
+    print(i)
     htmlwidgets::saveWidget(eval(parse(paste('plot', toString(i), sep =''))), paste('plot', toString(i), '.html', sep = ''))
   }
 }
 
 
-# Returns the results from variously lagged linear regressions
+# Returns the results from variously lagged linear regressions; from lag 0 to Max Lag
 regLaggedDiv = function(maxLag, dependent, independent){
   coeffMatrix = list()
   rSquared = list()
   adjRsquared = list()
+  
+  coeffMatrix[[1]] = summary(lm(dependent ~ independent))$coefficients
+  rSquared[[1]] = summary(lm(dependent ~ independent))$r.squared
+  adjRsquared[[1]] = summary(lm(dependent ~ independent))$adj.r.squared
+  
   
   for(i in seq.int(maxLag)){
     independent = lag(independent, k=i)
@@ -48,13 +55,14 @@ regLaggedDiv = function(maxLag, dependent, independent){
       independent = independent[-(1:i)]
       dependent = dependent[-(1:i)]
     }
-    coeffMatrix[[i]] = summary(lm(dependent ~ independent))$coefficients
-    rSquared[[i]] = summary(lm(dependent ~ independent))$r.squared
-    adjRsquared[[i]] = summary(lm(dependent ~ independent))$adj.r.squared
+    coeffMatrix[[i+1]] = summary(lm(dependent ~ independent))$coefficients
+    rSquared[[i+1]] = summary(lm(dependent ~ independent))$r.squared
+    adjRsquared[[i+1]] = summary(lm(dependent ~ independent))$adj.r.squared
   }
   return(list(coeffMatrix, rSquared, adjRsquared))
 }
 
+# Rolling Window regression Function
 rollingWindow = function(dependent, independent, window){
   adjRsquared = c()
   rSquared = c()
@@ -65,7 +73,6 @@ rollingWindow = function(dependent, independent, window){
     y = dependent[j:(j + window -1)]
     x = independent[j:(j + window -1)]
     reg = summary(lm(y ~ x))
-    print(reg)
     
     adjRsquared[j] = reg$adj.r.squared
     rSquared[j] = reg$r.squared
@@ -73,6 +80,7 @@ rollingWindow = function(dependent, independent, window){
   return(cbind.data.frame(rSquared, adjRsquared))
 }
 
+# Rolling Lag Function
 rollingLag = function(maxLag, dependent, independent){
   
   for(i in seq.int(maxLag)){
@@ -116,14 +124,7 @@ crsp['div'] = ((crsp$vwretd + 1)/(crsp$vwretx + 1))-1
 # Check to see if Div returns are all positive
 filter(crsp, div < 0)
 
-
-#crsp$vwretd = log(crsp$vwretd + 1)
-#crsp$vwretx = log(crsp$vwretx + 1)
-#crsp$logDiv = log(crsp$div + 1)
-
 ################################################
-
-
 # Generate quarterly geometric cumulative sum
 crspq = crsp %>%
   group_by(quarter) %>%
@@ -137,26 +138,17 @@ crspa = crsp %>%
             vwretd = Return.cumulative(vwretd, geometric = TRUE),
             div = Return.cumulative(div, geometric = TRUE))
 
-crspa$vwretd = crspa$vwretd + 1
-crspa$div = log(crspa$div + 1)
-
-
 # Join matching data based on the quarter and year dates
 tbillq = left_join(tbillq, crspq, by = 'quarter')
 tbilla = left_join(tbilla, crspa, by = 'year')
 
-# Convert Simple returns (calculated by CRSP) to Log Returns: r = log(R + 1)
-# Calculate the excess dividend inclusive index log return 
-tbillq$excessRetd = log(tbillq$vwretd - tbillq$t90ret + 1)
-tbilla$excessRetd = tbilla$vwretd - tbilla$b1ret
+# Calculate the excess dividend inclusive index return; adjusted for inflation
+tbillq$excessRetd = ((1 + tbillq$vwretd)/(1 + tbillq$cpiret)) - ((1 +tbillq$t90ret)/(1 + tbillq$cpiret))
+tbilla$excessRetd = ((1 + tbilla$vwretd)/(1 + tbilla$cpiret)) - ((1 +tbilla$b1ret)/(1 + tbilla$cpiret))
 
-# Calculate the excess dividend exclusive index log return
-tbillq$logExcessRetx = log(tbillq$vwretx + 1) - log(tbillq$t90ret + 1)
-tbilla$logExcessRetx = log(tbilla$vwretx + 1) - log(tbilla$b1ret + 1)
-
-#Calculate the log of each dividend return
-tbillq$logDiv = log(tbillq$div + 1)
-tbilla$logDiv = log(tbilla$div + 1)
+# Calculate the excess dividend exclusive index return; adjusted for inflation
+tbillq$excessRetx = ((1 + tbillq$vwretx)/(1 + tbillq$cpiret)) - ((1 +tbillq$t90ret)/(1 + tbillq$cpiret))
+tbilla$excessRetx = ((1 + tbilla$vwretx)/(1 + tbilla$cpiret)) - ((1 +tbilla$b1ret)/(1 + tbilla$cpiret))
 
 # Remove any NaN's
 tbillq = na.omit(tbillq)
@@ -164,9 +156,12 @@ tbilla = na.omit(tbilla)
 
 
 # Runs ADF Tests for stationarity on each variable
-vars = list(tbillq$logDiv, tbillq$logExcessRetd, tbillq$logExcessRetx,
-            tbilla$logDiv, tbilla$logExcessRetd, tbilla$logExcessRetx)
-# ADF Tests show that Log Div both Q & Y are not stationary
+vars = list(tbillq$div, tbillq$excessRetd, tbillq$excessRetx,
+            tbilla$div, tbilla$excessRetd, tbilla$excessRetx)
+varString = list('Q Div', 'Q Div Inc Excess Returns', 'Q Div X Excess Returns',
+                 'Y Div', 'Y Div Inc Excess Returns', 'Y Div X Excess Returns')
+
+# ADF Tests show that Div both Q & Y are not stationary
 ans = 1
 for(i in vars){
   if(ans == 1){
@@ -179,131 +174,167 @@ for(i in vars){
 }
 
 
-# Shows that the differencing of the log return dividends are stationary
-adf.test(diff(tbillq$logDiv, differences = 1, lag = 1))
-adf.test(diff(tbilla$logDiv, differences = 1, lag = 1))
-
-
+# Shows that the differencing of the return dividends are stationary
+adf.test(diff(tbillq$div, differences = 1, lag = 1))
+adf.test(diff(tbilla$div, differences = 1, lag = 1))
 
 # Build the LM for across the whole period for each Q & Y across multiple lags for Divs
 
-fullPeriodRegq = regLaggedDiv(6, tbillq$logExcessRetd, tbillq$logDiv)
-fullPeriodRega = regLaggedDiv(6, tbilla$logExcessRetd, tbilla$logDiv)
+fullPeriodRegq = regLaggedDiv(7, tbillq$excessRetd, tbillq$div)
+fullPeriodRega = regLaggedDiv(7, tbilla$excessRetd, tbilla$div)
 
-tbilla = na.omit(tbilla)
 
+#########################################################
+#Rolling Regression
+
+# No Lag: Div Inclusive
 rollingRsquaredd = rollingWindow(tbilla$excessRetd, tbilla$div, window = 15)
 
-plot_ly(y = rollingRsquaredd$adjRsquared, name = 'Adjusted R Squared',
-                 type = 'scatter', mode = 'lines') %>%
-  add_trace(y = rollingRsquaredd$rSquared, name = 'R Squared',
-            type = 'scatter', mode = 'lines') %>%
-  layout(
-    title = 'Rolling Window Regression: Dividends Inclusive, Lag: 0',
-    xaxis = list(title = 'Window Period'),
-    yaxis = list(title = 'R Squared Values')
-  )
+# No Lag: Div Exclusive
+rollingRsquaredx = rollingWindow(tbilla$excessRetx, tbilla$div, window = 15)
 
-rollingRsquaredx = rollingWindow(tbilla$logExcessRetx, tbilla$logDiv, window = 15)
+# Lag 1: Div Inclusive
+rollingRsquareddL1 = rollingWindow(tbilla$excessRetd[-1], lag(tbilla$div)[-1], window = 15)
 
-plot_ly(y = rollingRsquaredx$adjRsquared, x = row(rollingRsquaredx), type = "scatter", mode = 'lines') %>%
-  layout(
-    title = 'Adjusted R Squares: No Lagged Independent Variables'
-  )
+# Lag:1 Div Exlusive
+rollingRsquaredxL1 = rollingWindow(tbilla$excessRetx[-1], lag(tbilla$div)[-1], window = 15)
 
-
-rollingRsquareddL1 = rollingWindow(tbilla$logExcessRetd[-1], lag(tbilla$logDiv)[-1], window = 15)
-
-rollingRsquaredxL1 = rollingWindow(tbilla$logExcessRetx[-1], lag(tbilla$logDiv)[-1], window = 15)
-
-dataL = data.frame(rollingRsquareddL1, rollingRsquaredxL1)
-
-data = data.frame(rollingRsquaredd, rollingRsquaredx)
-
-
-
-#diff(tbillq$logDiv, differences = 1, lag = 1)
-
-fullPeriodDifferencedDivdq = summary(lm(tbillq$logExcessRetd[-1] ~ diff(tbillq$logDiv, differences = 1, lag = 1)))
-
-fullPeriodDifferencedDivxq = summary(lm(tbillq$logExcessRetx[-1] ~ diff(tbillq$logDiv, differences = 1, lag = 1)))
-
-fullPeriodDifferencedDivda = summary(lm(tbilla$logExcessRetd[-1] ~ diff(tbilla$logDiv, differences = 1, lag = 1)))
-
-fullPeriodDifferencedDivxa = summary(lm(tbilla$logExcessRetx[-1] ~ diff(tbilla$logDiv, differences = 1, lag = 1)))
-
-rollingWindow(tbilla$logExcessRetd[-1], diff(tbilla$logDiv, differences = 1, lag = 1), window = 15)
+# Lag & Differenced 1: Div Exclusive
+rollingRsquareddDiff = rollingWindow(tbilla$excessRetd[-1], diff(tbilla$div, differences = 1, lag = 1), window = 15)
 
 
 # INITIAL PLOTTING
 ############################################################
-# PLotting Q & Y Log Div: Does not look stationary
-plot1 = linePlot(tbillq$quarter, tbillq$logDiv,
-                 'Date', 'Log Dividend Return', 'Quarterly Dividend Log Returns')
-plot2 = linePlot(tbilla$year, tbilla$logDiv,
-                 'Date', 'Log Dividend Return', 'Annual Dividend Log Returns')
+# PLotting Q & Y Div: Does not look stationary
+plot1 = linePlot(tbillq$quarter, tbillq$div,
+                 'Date', 'Dividend Return', 'Quarterly Dividend Returns')
+plot2 = linePlot(tbilla$year, tbilla$div,
+                 'Date', 'Dividend Return', 'Annual Dividend Returns')
 
-densityq = density(tbillq$logDiv)
+densityq = density(tbillq$div)
 plot3 = plot_ly(x = ~densityq$x, y = ~densityq$y,type = 'scatter', mode = 'lines', fill = 'tozeroy') %>%
   layout(
-    title = 'Quarterly Dividend Log Return Density',
-    xaxis = list(title = 'Log Dividend Returns: Quarterly'),
+    title = 'Quarterly Dividend Return Density',
+    xaxis = list(title = 'Dividend Returns: Quarterly'),
     yaxis = list(title = 'Density')
   )
 
-# Plotting Log Excess Return, Div Inclusive, Q & Y: Both look more stationary
-plot4 = linePlot(tbillq$quarter, tbillq$logExcessRetd,
-                 'Date', 'Log Excess Return', 'Quarterly Log Excess Returns: Dividend Inclusive')
-plot5 = linePlot(tbilla$year, tbilla$logExcessRetd,
-                 'Date', 'Log Excess Return', 'Yearly Log Excess Returns: Dividend Inclusive')
-
-# Plotting Log Excess Return, Div Exclusive, Q & Y: Both look more stationary
-plot6 = linePlot(tbillq$quarter, tbillq$logExcessRetx,
-                 'Date', 'Log Excess Return', 'Quarterly Log Excess Returns: Dividend Exclusive')
-plot7 = linePlot(tbilla$year, tbilla$logExcessRetx,
-                 'Date', 'Log Excess Return', 'Yearly Log Excess Returns: Dividend Exclusive')
-
-plot8 = plot_ly(y = diff(tbillq$logDiv, differences = 1, lag = 1), type = "scatter", mode = 'lines') %>%
+divDensityq = density(tbillq$div)
+divDensitya = density(tbilla$div)
+excessRetdDensityq = density(tbillq$excessRetd)
+excessRetdDensitya = density(tbilla$excessRetd)
+plot11 = plot_ly(x = ~divDensityq$x, y = ~divDensityq$y,type = 'scatter', mode = 'lines', fill = 'tozeroy', name = 'Quarterly') %>%
+  add_trace(x = ~divDensitya$x, y = ~divDensitya$y,type = 'scatter', mode = 'lines', name = 'Yearly') %>%
+  
   layout(
-    title = 'Logged Dividend Returns Differenced and Lagged 1',
+    title = 'Div Return Density',
+    xaxis = list(title = 'Density'),
+    yaxis = list(title = 'Density'),
+    legend = list(x = 0.30, y = 0.8)
+  )
+
+plot12 = plot_ly(x = ~excessRetdDensityq$x, y = ~divDensitya$y,type = 'scatter', mode = 'lines', fill = 'tozeroy', name = 'Quarterly') %>%
+          add_trace(x = ~excessRetdDensitya$x, y = ~divDensitya$y,type = 'scatter', mode = 'lines', name = 'Yearly') %>%
+  layout(
+    title = 'Div Inclusive Excess Return Density',
+    xaxis = list(title = 'Density'),
+    yaxis = list(title = 'Density'),
+    legend = list(x = 0.70, y = 0.6)
+  )
+  
+
+# Plotting Excess Return, Div Inclusive, Q & Y: Both look more stationary
+# Plotting Excess Return, Div Exclusive, Q & Y: Both look more stationary
+
+plot4 = plot_ly(x = tbillq$quarter, y = tbillq$excessRetd, name = 'Excess Return: Div Inclusive',
+        type = 'scatter', mode = 'lines') %>%
+  
+  add_trace(y = tbillq$excessRetx, name = 'Excess Return: Div Exclusive',
+            type = 'scatter', mode = 'lines', line = list(dash = 'dot'), opacity = .7) %>%
+  
+  layout(
+    title = 'Quarterly Excess Return',
+    xaxis = list(title = 'Date', tickangle = -45),
+    yaxis = list(title = 'Excess Return'),
+    legend = list(x = 0.40, y = 0.6)
+  )
+
+plot5 = plot_ly(x = tbilla$year, y = tbilla$excessRetd, name = 'Excess Return: Div Inclusive',
+        type = 'scatter', mode = 'lines') %>%
+  
+  add_trace(y = tbilla$excessRetx, name = 'Excess Return: Div Exclusive',
+            type = 'scatter', mode = 'lines', line = list(dash = 'dot'), opacity = .7) %>%
+  
+  layout(
+    title = 'Yearly Excess Return',
+    xaxis = list(title = 'Date', tickangle = -45),
+    yaxis = list(title = 'Excess Return'),
+    legend = list(x = 0.40, y = 0.98)
+  )
+
+# Plotting the differenced Dividend
+
+plot6 = plot_ly(x = tbillq$quarter[-1], y = diff(tbillq$div, differences = 1, lag = 1), type = "scatter", mode = 'lines') %>%
+  layout(
+    title = 'Dividend Returns Differenced and Lagged 1',
     xaxis = list(title = 'Quarterly Date'),
-    yaxis = list(title = 'Logged Dividend Returns')
+    yaxis = list(title = 'Dividend Returns')
   )
-plot9 = plot_ly(y = diff(tbilla$logDiv, differences = 1, lag = 1), type = "scatter", mode = 'lines') %>%
+plot7 = plot_ly(x = tbilla$year[-1], y = diff(tbilla$div, differences = 1, lag = 1), type = "scatter", mode = 'lines') %>%
   layout(
-    title = 'Logged Dividend Returns Differenced and Lagged 1',
+    title = 'Dividend Returns Differenced and Lagged 1',
     xaxis = list(title = 'Yearly Date'),
-    yaxis = list(title = 'Logged Dividend Returns')
+    yaxis = list(title = 'Dividend Returns')
   )
 
-plot10 = plot_ly(y = data$adjRsquared, name = 'Dividends Inclusive: Lag 1',
-                 type = 'scatter', mode = 'lines') %>%
-  add_trace(y = data$adjRsquared.1, name = 'Dividends Exclusive: Lag 1',
+plot8 = plot_ly(x = tbilla$year[1:60], y = rollingRsquaredx$adjRsquared, name = 'Div Exclusive: Adjusted R<sup>2</sup>',
+                type = 'scatter', mode = 'lines') %>%
+  
+  add_trace(y = rollingRsquaredx$rSquared, name = 'Div Exclusive: R<sup>2</sup>',
+            type = 'scatter', mode = 'lines', line = list(dash = 'dot')) %>%
+  
+  add_trace(y = rollingRsquaredd$adjRsquared, name = 'Div Inclusive: Adjusted R<sup>2</sup>',
             type = 'scatter', mode = 'lines') %>%
+  
+  add_trace(y = rollingRsquaredd$rSquared, name = 'Div Inclusive: R<sup>2</sup>',
+            type = 'scatter', mode = 'lines', line = list(dash = 'dot')) %>%
+  
   layout(
-    title = 'Rolling Window Regression Adjusted R Squared',
-    xaxis = list(title = 'Window Period'),
-    yaxis = list(title = 'Adjusted R Squared')
+    title = 'Rolling Window Regression, Lag: 0',
+    xaxis = list(title = 'Window Period', tickangle = -45),
+    yaxis = list(title = 'R<sup>2</sup> Values'),
+    legend = list(x = 0.40, y = 0.93)
+  )
+plot9 = plot_ly(x = tbilla$year[1:59], y = rollingRsquaredxL1$adjRsquared, name = 'Div Exclusive: Adjusted R<sup>2</sup>',
+                type = 'scatter', mode = 'lines') %>%
+  
+  add_trace(y = rollingRsquaredxL1$rSquared, name = 'Div Exclusive: R<sup>2</sup>',
+            type = 'scatter', mode = 'lines', line = list(dash = 'dot')) %>%
+  
+  add_trace(y = rollingRsquareddL1$adjRsquared, name = 'Div Inclusive: Adjusted R<sup>2</sup>',
+            type = 'scatter', mode = 'lines') %>%
+  
+  add_trace(y = rollingRsquareddL1$rSquared, name = 'Div Inclusive: R<sup>2</sup>',
+            type = 'scatter', mode = 'lines', line = list(dash = 'dot')) %>%
+  
+  layout(
+    title = 'Rolling Window Regression, Lag: 1',
+    xaxis = list(title = 'Window Period', tickangle = -45),
+    yaxis = list(title = 'R<sup>2</sup> Values'),
+    legend = list(x = 0.40, y = 0.98)
   )
 
-plot11 = plot_ly(y = data$adjRsquared, name = 'Dividends Inclusive',
+plot10 = plot_ly(x = tbilla$year[1:59], y = rollingRsquareddDiff$rSquared, name = 'Div Inclusive: R<sup>2</sup>',
                  type = 'scatter', mode = 'lines') %>%
-  add_trace(y = data$adjRsquared.1, name = 'Dividends Exclusive',
-            type = 'scatter', mode = 'lines') %>%
+  add_trace(y = rollingRsquareddDiff$adjRsquared, name = 'Div Inclusive: Adj R<sup>2</sup>',
+            type = 'scatter', mode = 'lines', line = list(dash = 'dot')) %>%
   layout(
-    title = 'Rolling Window Regression Adjusted R Squared',
-    xaxis = list(title = 'Window Period'),
-    yaxis = list(title = 'Adjusted R Squared')
+    title = 'Rolling Window Regression, Lag: 1, Differenced: 1',
+    xaxis = list(title = 'Window Period', tickangle = -45),
+    yaxis = list(title = 'R<sup>2</sup> Values'),
+    legend = list(x = 0.6, y = 0.85)
   )
 
-plot12 = plot_ly(y = data$adjRsquared, name = 'Dividends Inclusive',
-                 type = 'scatter', mode = 'lines') %>%
-  add_trace(y = data$adjRsquared.1, name = 'Dividends Exclusive',
-            type = 'scatter', mode = 'lines') %>%
-  layout(
-    title = 'Rolling Window Regression Adjusted R Squared',
-    xaxis = list(title = 'Window Period'),
-    yaxis = list(title = 'Adjusted R Squared')
-  )
+
 
 #############################################################
