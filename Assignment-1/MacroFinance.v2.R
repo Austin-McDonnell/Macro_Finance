@@ -6,7 +6,6 @@ library(plotly)
 library(ts)
 library(shiny)
 library(PerformanceAnalytics)
-#library(aTSA)
 library(tseries)
 setwd("C:\\Users\\austi\\Documents\\Github_Repos\\Macro_Finance\\Assignment-1\\Data")
 
