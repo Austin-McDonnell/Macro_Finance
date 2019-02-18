@@ -28,6 +28,7 @@ stoppingWords = unlist(tokenize_words(stoppingWords$text))
 
 
 #Stripping the stopping words out of each FOMC Transcript
+#Created diffferent types of lists based on different criteria
 strippedWords = list()
 stemmedWords = list()
 uniqueWords = list()
@@ -67,6 +68,7 @@ stemCount = stemmedWordsTotal %>%
   dplyr::arrange(desc(Total))
 
 ##############################################################################
+#Plotting
 
 temp = stemCount %>% head(20)
 #plot_ly(x=temp$stems, y=temp$Total, type = "histogram")
@@ -74,8 +76,10 @@ temp = stemCount %>% head(20)
 
 #############################################################################
 
+
+#Pulling in the data and analyzing the sentiment via the HE and LM dictionaries
 baseOutput = analyzeSentiment(txtData$text, language = "english", aggregate = NULL,
-                              removeStopwords = FALSE, stemming = FALSE)
+                              removeStopwords = TRUE, stemming = TRUE)
 
 
 
