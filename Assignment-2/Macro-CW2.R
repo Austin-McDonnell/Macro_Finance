@@ -22,7 +22,9 @@ stoppingWords = readtext(paste0(getwd(), "/*.txt"),
                    docvarsfrom = "filenames")
 
 #Transforming dates and removing extra data
-txtData$date = strptime(ymd(txtData$date), format = '%Y-%m-%d')
+txtData$date = as_date(ymd(txtData$date))
+
+#txtData$date = format(as.POSIXct(txtData$date,format='%Y-%m-%d %H:%M:%S'),format='%Y-%m-%d')
 sp500$date = as_date(sp500$Date)
 sp500 = select (sp500,-c(Volume, High, Low, Date))
 
@@ -130,5 +132,5 @@ plot_ly(y=sentimentH, name = 'Harvard Dictionary Sentiment',
 #######################################################################################################
 # Runing the regression
 
-
+mappedData = left_join(txtData, sp500, by='date')
 
