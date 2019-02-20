@@ -1,0 +1,138 @@
+##########################################################################################
+#           Manual Code for Text Mining in Harvard IV Sentiment Dictionary
+##########################################################################################
+library(SentimentAnalysis)
+library(readtext)
+library(tokenizers)
+library(tm)
+library(ggplot2)
+#Q1
+dictGI=loadDictionaryLM()
+pos=dictGI$positiveWords
+neg=dictGI$negativeWords
+pathtext="C:/Users/admin/Dropbox/BS0357-1819/draft/pset5_2019_ans/Policy Statement/*.txt"
+txt=readtext(pathtext,encoding = "utf8")
+setwd("C:/Users/amichae1/Dropbox (ICBS)/BS0357-1819/draft/pset5_2019_ans")
+txt=readtext(pathtext,encoding = "utf8")
+setwd("C:/Users/amichae1/Dropbox (ICBS)/BS0357-1819/draft/pset5_2019_ans/Policy Statement")
+pathtext="C:/Users/amichae1/Dropbox (ICBS)/BS0357-1819/draft/pset5_2019_ans/Policy Statement/*.txt"
+txt=readtext(pathtext,encoding = "utf8")
+#cite in the new stopping words
+pathofstop="C:/Users/admin/Dropbox/BS0357-1819/draft/pset5_2019_ans/StopWords_GenericLong.txt"
+#cite in the new stopping words
+pathofstop="C:/Users/amichae1/Dropbox (ICBS)/BS0357-1819/draft/pset5_2019_ans/Policy Statement/StopWords_GenericLong.txt"
+newstop=(read.csv(pathofstop,header = F,stringsAsFactors = F))[,1]
+newstop=tolower(newstop)
+#cite in the new stopping words
+pathofstop="C:/Users/amichae1/Dropbox (ICBS)/BS0357-1819/draft/pset5_2019_ans/StopWords_GenericLong.txt"
+newstop=(read.csv(pathofstop,header = F,stringsAsFactors = F))[,1]
+newstop=tolower(newstop)
+pos_vector=c()
+neg_vector=c()
+dif_vector=c()
+pol_vector=c()
+p=c();n=c()
+tokenlong=c()
+for (i in 1:dim(txt)[1]){
+tmp_txt=txt[i,2]
+tokens=(tokenize_ngrams(tmp_txt,T,1,stopwords = newstop))[[1]]
+tokens=tolower(tokens)
+tokens=removeNumbers(tokens);tokens=tokens[tokens!=""]
+tokens=removePunctuation(tokens);tokens=tokens[tokens!=""]
+tokens=tokenize_word_stems(tokens,language = "en",stopwords = newstop)
+newtoken=c()
+for (ii in 1:length(tokens)){
+newtoken=c(newtoken,tokens[[ii]])
+}
+tokens=newtoken
+tokenlong=c(tokenlong,tokens)
+ratio_pos=sum(tokens %in% pos)/length(tokens)
+ratio_neg=sum(tokens %in% neg)/length(tokens)
+p=c(p,tokens[tokens %in% pos])
+n=c(n,tokens[tokens %in% neg])
+ratio_dif=ratio_pos-ratio_neg
+pos_vector=c(pos_vector,ratio_pos)
+neg_vector=c(neg_vector,ratio_neg)
+dif_vector=c(dif_vector,ratio_dif)
+print(i)
+}
+mytime=strsplit(txt[,1],'.txt')
+mytime1=as.Date(paste(substr(mytime,1,4),substr(mytime,5,6),substr(mytime,7,8),sep="-"),'%Y-%m-%d')
+windows()
+data0=data.frame("Date"=mytime1,"Tone_Diff"=dif_vector,"Tone_Pos"=pos_vector,"Tone_Neg"=neg_vector)
+gg=ggplot(data0, aes(x=mytime1, y=dif_vector))+labs(y="FOMC Communication Tone", x="Date",
+title="FOMC Policy Statement Sentiment in LM Dictionary")+
+geom_point(color="blue",size=5)+geom_line(size=2,color="red")+
+geom_smooth()
+plot(gg)
+#Q2
+#check the ranking of the terms in a document, negative vs positive words ?
+library(xtable)
+d=as.data.frame(table(factor(tokenlong)))
+dd=d[order(d$Freq,decreasing = T),]
+x <- xtable(head(dd,15))
+View(dd)
+View(dd)
+View(dd)
+View(dd)
+#Q3
+dp=as.data.frame(table(factor(p)))
+ddp=dp[order(dp$Freq,decreasing = T),]
+dn=as.data.frame(table(factor(n)))
+ddn=dn[order(dn$Freq,decreasing = T),]
+d1=head(ddp,15);d2=head(ddn,15)
+frame=data.frame(d1,d2)
+View(d1)
+View(d1)
+x=xtable((frame))
+#Q4
+library(pracma)
+pathstock1="C:/Users/admin/Dropbox/Yi Zhang, MP project, Imperial/MRes Project/SP500.csv"
+pathstock1
+pathstock1
+#Q4
+#library(pracma)
+pathstock1="C:/Users/amichae1/Dropbox (ICBS)/BS0357-1819/draft/pset5_2019_ans/SP500.csv"
+stock1=read.csv(pathstock1,stringsAsFactors = F,header = T)
+stock1$Date=as.Date(stock1$Date,"%Y/%m/%d")
+stock1=merge(stock1,data0,by="Date")
+ret1=diff(stock1$Open)/((stock1$Open)[-dim(stock1)[1]])
+stock1=data.frame(stock1[-dim(stock1)[1],],ret1)
+windows()
+gg1=ggplot(stock1, aes(x=Date, y=ret1))+labs(y="SP500 Return", x="Date",
+title="SP500 Return")+
+geom_point(color="blue",size=5)+geom_line(size=2,color="red")+
+geom_smooth()
+plot(gg1)
+fit=lm(ret1~Tone_Diff,data=stock1)
+c11=summary(fit)$coef[1,1];c12=summary(fit)$coef[2,1]
+t11=summary(fit)$coef[1,3];t12=summary(fit)$coef[2,3]
+p11=summary(fit)$coef[1,4];p12=summary(fit)$coef[2,4]
+cval=round(c(c11,c12),4)
+tval=round(c(t11,t12),4)
+tval=paste("(",tval,")",sep="")
+pval=round(c(p11,p12),4)
+symp <- symnum(pval, corr = FALSE,
+cutpoints = c(0,.01,.05,.1,1),
+symbols = c("***","**","*",""))
+cval.new=paste(cval,symp,sep="")
+noquote(cval.new)
+x0=t(cbind(cval.new,tval))
+x1=x0[1:(dim(x0)[1]*dim(x0)[2])]
+xtab=data.frame(matrix(x1,c(2,4)))
+latex=xtable(xtab)
+##########################################################################################
+#                         R Packages for Text Mining in Harvard
+##########################################################################################
+#redo the same stuff with package in r
+tmp_txt=txt[,2]
+docs=Corpus(VectorSource(tmp_txt))
+dtm=DocumentTermMatrix(docs, control = list(weighting = weightTf,
+removePunctuation=T,
+stopwords=T,
+stemming=T))
+sentimentGI.dif= analyzeSentiment(dtm,rules=list("SentimentGI"=list(ruleSentiment,loadDictionaryLM())),removeNumbers=T)
+sentimentGI.neg= analyzeSentiment(dtm,rules=list("SentimentGI"=list(ruleNegativity,loadDictionaryLM())),removeNumbers=T)
+sentimentGI.pos= analyzeSentiment(dtm,rules=list("SentimentGI"=list(rulePositivity,loadDictionaryLM())),removeNumbers=T)
+windows()
+plot(mytime1,sentimentGI.dif[,1],type="l",xlab = "Time",ylab="Difference in Polarity")
