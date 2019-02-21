@@ -1,0 +1,78 @@
+ORDER OF REGRESSIONS ANS TESTS:
+
+1)
+#Closing from day before policy announcement to closing after policy announcement return
+sp500$returnPercentDayBeforeClose = (lag(sp500$Close) - sp500$Close)/sp500$Close*100
+
+2)
+#Return for the day of the Policy Announcement
+sp500$returnPercentOpenToClose = (sp500$Close - sp500$Open)/sp500$Open*100
+
+3)
+#Open to Next day close return; policy announcement starts on the open
+sp500$returnPercentDayOpenDayAfterClose = (lag(sp500$Close) - sp500$Open)/sp500$Open*100
+
+
+	Augmented Dickey-Fuller Test: 
+1)
+data:  unlist(returnList[i])
+Dickey-Fuller = -3.4164, Lag order = 4, p-value = 0.0587
+alternative hypothesis: stationary
+
+
+	Augmented Dickey-Fuller Test
+2)
+data:  unlist(returnList[i])
+Dickey-Fuller = -3.3174, Lag order = 4, p-value = 0.07477
+alternative hypothesis: stationary
+
+
+	Augmented Dickey-Fuller Test
+3)
+data:  unlist(returnList[i])
+Dickey-Fuller = -4.2071, Lag order = 4, p-value = 0.01
+alternative hypothesis: stationary
+
+
+		LM DICTIONARY COEFFICIENTS
+[[1]]
+              Estimate Std. Error   t value   Pr(>|t|)
+(Intercept) -0.3669557  0.1497381 -2.450651 0.01646931
+sentimentLM 17.8467621  9.9174848  1.799525 0.07575388
+
+[[2]]
+               Estimate Std. Error   t value   Pr(>|t|)
+(Intercept)   0.3690138  0.1454543  2.536975 0.01315088
+sentimentLM -23.3927596  9.6337595 -2.428207 0.01744676
+
+[[3]]
+               Estimate Std. Error   t value    Pr(>|t|)
+(Intercept) -0.01564381 0.02210654 -0.707655 0.481242029
+
+
+		HARVARD DICTIONARY COEFFICIENTS
+[[1]]
+               Estimate Std. Error     t value  Pr(>|t|)
+(Intercept)  0.02294606  0.5614782  0.04086724 0.9675048
+sentimentH  -4.48129475  5.7891637 -0.77408326 0.4411920
+
+[[2]]
+              Estimate Std. Error   t value  Pr(>|t|)
+(Intercept) 0.09338371  0.5550517 0.1682433 0.8668219
+sentimentH  3.35311128  5.7229033 0.5859109 0.5596056
+
+[[3]]
+              Estimate Std. Error   t value  Pr(>|t|)
+(Intercept)  0.1121345 0.08511351  1.317470 0.1914895
+sentimentH  -1.2909339 0.87756934 -1.471034 0.1452542
+sentimentLM -4.49051014 1.46416559 -3.066941 0.002960842
+
+		LM DICTIONARY R SQUARED
+1) 0.03937692 
+2) 0.06945174
+3) 0.10639681
+
+		HARVARD DICTIONARY R SQUARED
+1) 0.007527775 
+2) 0.004326661 
+3) 0.026661342

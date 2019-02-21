@@ -3,7 +3,7 @@ library(dplyr)
 library(zoo)
 library(lubridate)
 library(plotly)
-library(ts)
+library(tseries)
 library(readtext)
 library(tokenizers)
 library(SnowballC)
@@ -23,12 +23,23 @@ stoppingWords = readtext(paste0(getwd(), "/*.txt"),
 
 #Transforming dates and removing extra data
 txtData$date = as_date(ymd(txtData$date))
+txtData$num = seq.int(81)
+write.csv(txtData, 'full_text.csv')
 
 #txtData$date = format(as.POSIXct(txtData$date,format='%Y-%m-%d %H:%M:%S'),format='%Y-%m-%d')
 sp500$date = as_date(sp500$Date)
 sp500 = select (sp500,-c(Volume, High, Low, Date))
 
 stoppingWordsList = unlist(tokenize_words(stoppingWords$text))
+
+#Closing from day before policy announcement to closing after policy announcement return
+sp500$returnPercentDayBeforeClose = (lag(sp500$Close) - sp500$Close)/sp500$Close*100
+
+#Return for the day of the Policy Announcement
+sp500$returnPercentOpenToClose = (sp500$Close - sp500$Open)/sp500$Open*100
+
+#Open to Next day close return; policy announcement starts on the open
+sp500$returnPercentDayOpenDayAfterClose = (lag(sp500$Close) - sp500$Open)/sp500$Open*100
 
 
 #Stripping the stopping words out of each FOMC Transcript
@@ -38,16 +49,21 @@ stemmedWords = list()
 uniqueWords = list()
 totalWordCount = c()
 uniqueWordCount = c()
+date = list()
 
 for(i in seq.int(nrow(txtData))){
   
   wordList = unlist(tokenize_words(txtData$text[i]))
   strippedWordList = wordList[wordList %ni% stoppingWordsList]
   uniqueWordList = unique(strippedWordList)
+  stemmedWordList = wordStem(strippedWordList, language = "en")
+  
   
   strippedWords[[i]] = strippedWordList
   uniqueWords[[i]] = uniqueWordList
-  stemmedWords[[i]] = wordStem(strippedWordList, language = "en")
+  stemmedWords[[i]] = stemmedWordList
+  
+  date[[i]] = rep(toString(txtData$date[i]), length(stemmedWordList))
   
   totalWordCount[i] = length(wordList)
   uniqueWordCount[i] = length(uniqueWordList)
@@ -55,29 +71,37 @@ for(i in seq.int(nrow(txtData))){
 
 
 #Flattening lists into a dataframe
-strippedWordsTotal <- plyr::ldply(strippedWords, data.frame)
-colnames(strippedWordsTotal) = c('words')
 
 stemmedWordsTotal <- plyr::ldply(stemmedWords, data.frame)
 colnames(stemmedWordsTotal) = c('stems')
 
+stemWordsCategory = data.frame(stems = unlist(stemmedWords), date = as_date(unlist(date)))
+write.csv(stemWordsCategory, 'words_and_dates.csv')
+
 #Counting the frequency of words produced
-wordCount = strippedWordsTotal %>%
-  dplyr::group_by(words) %>%
-  dplyr::summarise(Total = n()) %>%
-  dplyr::arrange(desc(Total))
 
 stemCount = stemmedWordsTotal %>%
   dplyr::group_by(stems) %>%
   dplyr::summarise(Total = n()) %>%
   dplyr::arrange(desc(Total))
 
+#Groups each policy statements word frequency
+stemWordsGroup = stemWordsCategory %>%
+  dplyr::group_by(date, stems) %>%
+  dplyr::summarise(Total = n()) %>%
+  dplyr::top_n(5)%>%
+  dplyr::arrange(desc(date)) %>%
+  dplyr::ungroup()
+
+stemWordsGroup = left_join(stemWordsGroup, txtData %>% select(date, num), by = 'date')
+
+write.csv(stemCount, 'aggregate_stemmed_words_count.csv')
+write.csv(stemmedWordsTotal, 'raw_stemmed_words.csv')
+write.csv(stemWordsGroup, 'stem_words_group.csv')
+
+
 ##############################################################################
 #Plotting
-
-temp = stemCount %>% head(20)
-#plot_ly(x=temp$stems, y=temp$Total, type = "histogram")
-
 
 #############################################################################
 
@@ -123,14 +147,41 @@ plot_ly(y=sentimentH, name = 'Harvard Dictionary Sentiment',
   
   layout(
     title = 'FOMC Policy Statement Sentiment Over Time',
-    xaxis = list(title = 'Date', tickangle = -45),
     yaxis = list(title = 'FOMC Policy Statement Sentiment'),
-    legend = list(x = 0.40, y = 0.93)
+    legend = list(orientation = 'h')
   )
 
 
+
 #######################################################################################################
-# Runing the regression
+# Runing the regressions
 
 mappedData = left_join(txtData, sp500, by='date')
 
+mappedData$sentimentH = sentimentH
+mappedData$sentimentLM = sentimentLM
+
+#replacing the only NA value with the following day returns
+mappedData$returnPercentDayBeforeClose[is.na(mappedData$returnPercentDayBeforeClose)] = 0.340887260
+mappedData$returnPercentOpenToClose[is.na(mappedData$returnPercentOpenToClose)] = -0.051883533
+mappedData$returnPercentDayOpenDayAfterClose[is.na(mappedData$returnPercentDayOpenDayAfterClose)] = 0.2888268626
+
+
+returnList = list(mappedData$returnPercentDayBeforeClose, mappedData$returnPercentOpenToClose,
+                  mappedData$returnPercentDayOpenDayAfterClose)
+coeffLM = list()
+coeffH = list()
+rsquaredLM = c()
+rsquaredH = c()
+
+for(i in seq.int(3)){
+  print(adf.test(unlist(returnList[i])))
+  regLM = summary(lm(unlist(returnList[i]) ~ sentimentLM))
+  regH = summary(lm(unlist(returnList[i]) ~ sentimentH))
+  
+  coeffLM[[i]] = regLM$coefficients
+  coeffH[[i]] = regH$coefficients
+  
+  rsquaredLM[i] = regLM$r.squared
+  rsquaredH[i] = regH$r.squared
+}
