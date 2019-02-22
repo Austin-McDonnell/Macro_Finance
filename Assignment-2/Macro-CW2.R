@@ -11,6 +11,7 @@ library(SentimentAnalysis)
 
 '%ni%' <- Negate('%in%')
 
+
 setwd("C:\\Users\\austi\\Documents\\Github_Repos\\Macro_Finance\\Assignment-2\\Data")
 
 # Reading in Data
@@ -24,7 +25,7 @@ stoppingWords = readtext(paste0(getwd(), "/*.txt"),
 #Transforming dates and removing extra data
 txtData$date = as_date(ymd(txtData$date))
 txtData$num = seq.int(81)
-write.csv(txtData, 'full_text.csv')
+#write.csv(txtData, 'full_text.csv')
 
 #txtData$date = format(as.POSIXct(txtData$date,format='%Y-%m-%d %H:%M:%S'),format='%Y-%m-%d')
 sp500$date = as_date(sp500$Date)
@@ -76,7 +77,7 @@ stemmedWordsTotal <- plyr::ldply(stemmedWords, data.frame)
 colnames(stemmedWordsTotal) = c('stems')
 
 stemWordsCategory = data.frame(stems = unlist(stemmedWords), date = as_date(unlist(date)))
-write.csv(stemWordsCategory, 'words_and_dates.csv')
+#write.csv(stemWordsCategory, 'words_and_dates.csv')
 
 #Counting the frequency of words produced
 
@@ -84,6 +85,13 @@ stemCount = stemmedWordsTotal %>%
   dplyr::group_by(stems) %>%
   dplyr::summarise(Total = n()) %>%
   dplyr::arrange(desc(Total))
+
+temp = stemWordsCategory %>%
+  dplyr::group_by(stems) %>%
+  dplyr::summarise(Total = n()) %>%
+  dplyr::arrange(desc(Total))
+
+write.csv(temp, 'table-word-frequency.csv')
 
 #Groups each policy statements word frequency
 stemWordsGroup = stemWordsCategory %>%
@@ -95,9 +103,9 @@ stemWordsGroup = stemWordsCategory %>%
 
 stemWordsGroup = left_join(stemWordsGroup, txtData %>% select(date, num), by = 'date')
 
-write.csv(stemCount, 'aggregate_stemmed_words_count.csv')
-write.csv(stemmedWordsTotal, 'raw_stemmed_words.csv')
-write.csv(stemWordsGroup, 'stem_words_group.csv')
+#write.csv(stemCount, 'aggregate_stemmed_words_count.csv')
+#write.csv(stemmedWordsTotal, 'raw_stemmed_words.csv')
+#write.csv(stemWordsGroup, 'stem_words_group.csv')
 
 
 ##############################################################################
@@ -135,18 +143,66 @@ for(i in seq.int(81)){
   
 }
 
+dateList = txtData %>%
+  select(date) %>%
+  arrange(date)
+
 sentimentH = (posH - negH)/total
 sentimentLM = (posLM - negLM)/total
+
+frequencyPosNeg = data.frame(date= as_date(unlist(dateList)), positiveH= unlist(posH), negativeH = unlist(negH),
+                             positiveLM = unlist(posLM), negativeLM = unlist(negLM))
+write.csv(frequencyPosNeg, 'PosNegWordFrequency.csv')
+
+plot5 = plot_ly(frequencyPosNeg, x=~date, y = ~positiveH, name = 'Harvard: Positive Words',
+                type = 'scatter', mode = 'lines') %>%
+  
+  add_trace(y = ~negativeH, name = 'Harvard: Negative Words',
+            type = 'scatter', mode = 'lines', line = list(dash = 'dot')) %>%
+  
+  add_trace(y = ~positiveLM, name = 'Loughran and McDonald: Positive Words',
+            type = 'scatter', mode = 'lines') %>%
+  
+  add_trace(y = ~negativeLM, name = 'Loughran and McDonald: Negative Words',
+            type = 'scatter', mode = 'lines', line = list(dash = 'dot')) %>%
+  
+  layout(
+    title = 'Word Type Frequency',
+    xaxis = list(title = 'FOMC Policy Announcement Date', tickangle = -45),
+    yaxis = list(title = 'Frequency'),
+    legend = list(x = 0.20, y = 0.8)
+  )
+
 #############################################################################################
 
-plot_ly(y=sentimentH, name = 'Harvard Dictionary Sentiment',
+
+ay <- list(
+  tickfont = list(color = "orange"),
+  overlaying = "y",
+  side = "right",
+  title = "LM Sentiment Index"
+)
+
+plot1 <- plot_ly() %>%
+  add_lines(x=dateList$date, y = sentimentH, name = "Harvard Dictionary") %>%
+  add_lines(x=dateList$date, y = sentimentLM, name = "Loughran and McDonald Dictionary",
+            mode = 'lines', line = list(dash = 'dot'), yaxis = "y2") %>%
+  layout(
+    title = "FOMC Policy Sentiment: Harvard v.s LM Dictionary", yaxis2 = ay,
+    yaxis = list(title='Harvard Senitment Index'),
+    xaxis = list(title="FOMC Policy Announcement Dates")
+  )
+
+
+plot2 = plot_ly(x=dateList$date, y=sentimentH, name = 'Harvard Dictionary',
         type = "scatter", mode = 'lines') %>%
   
-  add_trace(y = sentimentLM, name = 'Loughran and McDonald Dictionary Sentiment',
+  add_trace(y = sentimentLM, name = 'Loughran and McDonald Dictionary',
             type = 'scatter', mode = 'lines', line = list(dash = 'dot', yaxis = "y2")) %>%
   
   layout(
     title = 'FOMC Policy Statement Sentiment Over Time',
+    xaxis = list(title = 'FOMC Policy Announcement Dates', tickangle = -45),
     yaxis = list(title = 'FOMC Policy Statement Sentiment'),
     legend = list(orientation = 'h')
   )
@@ -165,6 +221,44 @@ mappedData$sentimentLM = sentimentLM
 mappedData$returnPercentDayBeforeClose[is.na(mappedData$returnPercentDayBeforeClose)] = 0.340887260
 mappedData$returnPercentOpenToClose[is.na(mappedData$returnPercentOpenToClose)] = -0.051883533
 mappedData$returnPercentDayOpenDayAfterClose[is.na(mappedData$returnPercentDayOpenDayAfterClose)] = 0.2888268626
+
+
+az <- list(
+  tickfont = list(color = "orange"),
+  overlaying = "y",
+  side = "right",
+  title = "S&P 500 Return"
+)
+
+
+plot3 <- plot_ly() %>%
+  add_lines(x=dateList$date, y = sentimentH, name = "Harvard Dictionary") %>%
+  add_lines(x=dateList$date, y = mappedData$returnPercentOpenToClose, name = "S&P 500 Return",
+            mode = 'lines', line = list(dash = 'dot'), yaxis = "y2") %>%
+  layout(
+    title = "Harvard FOMC Policy Sentiment v.s S&P 500 Returns", yaxis2 = az,
+    yaxis = list(title='Harvard Senitment Index'),
+    xaxis = list(title="FOMC Policy Announcement Dates")
+  )
+
+aa <- list(
+  tickfont = list(color = "orange"),
+  overlaying = "y",
+  side = "right",
+  title = "S&P 500 Return"
+)
+
+
+plot4 <- plot_ly() %>%
+  add_lines(x=dateList$date, y = sentimentLM, name = "Loughran and McDonald Dictionary") %>%
+  add_lines(x=dateList$date, y = mappedData$returnPercentOpenToClose, name = "S&P 500 Return",
+            mode = 'lines', line = list(dash = 'dot'), yaxis = "y2") %>%
+  layout(
+    title = "Loughran and McDonald FOMC Policy Sentiment v.s S&P 500 Returns", yaxis2 = aa,
+    yaxis = list(title='Loughran and McDonald Senitment Index'),
+    xaxis = list(title="FOMC Policy Announcement Dates")
+  )
+
 
 
 returnList = list(mappedData$returnPercentDayBeforeClose, mappedData$returnPercentOpenToClose,
